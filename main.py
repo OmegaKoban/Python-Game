@@ -25,6 +25,7 @@ from src.player import Player
 from src.camera import Camera
 from src.wave_manager import WaveManager
 from src.hud import HUD
+from src.menu import Menu
 
 
 class Game:
@@ -122,15 +123,37 @@ class Game:
 
 
 def create_screen():
+    # Реальное разрешение монитора — нужно, т.к. SCALED не принимает размер (0,0).
+    info = pygame.display.Info()
+    desktop_size = (info.current_w, info.current_h)
+
+    flags = pygame.SCALED | pygame.DOUBLEBUF
     if settings.SCREEN_MODE == "fullscreen":
-        screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
-        settings.SCREEN_WIDTH, settings.SCREEN_HEIGHT = screen.get_size()
+        flags |= pygame.FULLSCREEN
+        size = desktop_size
     elif settings.SCREEN_MODE == "borderless":
-        screen = pygame.display.set_mode((0, 0), pygame.NOFRAME)
-        settings.SCREEN_WIDTH, settings.SCREEN_HEIGHT = screen.get_size()
+        flags |= pygame.NOFRAME
+        size = desktop_size
     else:
-        screen = pygame.display.set_mode((settings.SCREEN_WIDTH, settings.SCREEN_HEIGHT))
+        size = (settings.SCREEN_WIDTH, settings.SCREEN_HEIGHT)
+
+    try:
+        screen = pygame.display.set_mode(size, flags, vsync=1)
+    except pygame.error:
+        try:
+            screen = pygame.display.set_mode(size, flags)  # без vsync
+        except pygame.error:
+            # Полный откат: без SCALED (например, старые драйверы).
+            fallback = flags & ~pygame.SCALED
+            screen = pygame.display.set_mode(size, fallback)
+
+    settings.SCREEN_WIDTH, settings.SCREEN_HEIGHT = screen.get_size()
     return screen
+
+
+# Состояния приложения.
+STATE_MENU = "menu"
+STATE_PLAYING = "playing"
 
 
 def main():
@@ -139,7 +162,9 @@ def main():
     screen = create_screen()
     clock = pygame.time.Clock()
 
-    game = Game(screen)
+    menu = Menu(screen)
+    game = None  # игра создаётся при нажатии «Играть»
+    state = STATE_MENU
 
     running = True
     while running:
@@ -149,17 +174,37 @@ def main():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
-            elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_ESCAPE:
+
+            elif state == STATE_MENU:
+                choice = menu.handle_event(event)
+                if choice == "play":
+                    game = Game(screen)
+                    state = STATE_PLAYING
+                elif choice == "settings":
+                    state = STATE_SETTINGS      # откроем экран настроек
+                elif choice == "records":
+                    state = STATE_RECORDS       # откроем экран рекордов
+                elif choice == "quit":
                     running = False
-                elif event.key == pygame.K_r and game.game_over:
-                    game.reset()
+                elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                    running = False
 
-        # 2. Update
-        game.update(dt)
+            elif state == STATE_PLAYING:
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        # ESC в игре — возврат в меню.
+                        state = STATE_MENU
+                    elif event.key == pygame.K_r and game.game_over:
+                        game.reset()
 
-        # 3. Render
-        game.render()
+        # 2. Update + 3. Render
+        if state == STATE_MENU:
+            menu.update(dt)
+            menu.render()
+            pygame.display.flip()
+        else:
+            game.update(dt)
+            game.render()  # render сам вызывает pygame.display.flip()
 
     pygame.quit()
 

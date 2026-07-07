@@ -41,6 +41,11 @@ class Projectile(pygame.sprite.Sprite):
 
         # Кадры анимации + fallback-кружок.
         self.frames = self._load_frames()
+
+        # Предповорот кадров один раз (угол фиксирован на весь полёт) —
+        # чтобы не крутить спрайт каждый кадр (тяжело на слабых GPU/Retina).
+        if settings.PROJECTILE_ROTATE_TO_DIRECTION:
+            self.frames = [pygame.transform.rotate(f, self.angle) for f in self.frames]
         self.frame_index = 0
         self.anim_timer = 0.0
 
@@ -72,11 +77,8 @@ class Projectile(pygame.sprite.Sprite):
         return [surface]
 
     def _current_frame(self):
-        """Текущий кадр анимации с поворотом по направлению полёта (если включено)."""
-        frame = self.frames[self.frame_index % len(self.frames)]
-        if settings.PROJECTILE_ROTATE_TO_DIRECTION and len(self.frames) >= 1:
-            frame = pygame.transform.rotate(frame, self.angle)
-        return frame
+        """Текущий кадр анимации (уже повёрнут при создании снаряда)."""
+        return self.frames[self.frame_index % len(self.frames)]
 
     def update(self, dt, enemies, tilemap):
         self.lifetime -= dt

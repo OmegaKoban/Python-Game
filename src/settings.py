@@ -43,6 +43,53 @@ SCREEN_HEIGHT = 640
 FPS = 60
 WINDOW_TITLE = "Auto Arsenal"
 
+# ---------- Меню (главный экран) ----------
+# Папка с ассетами меню.
+MENU_DIR = os.path.join(ASSETS_DIR, "menu")
+# Фон-подложка (небо), на котором летят облака.
+MENU_BACKGROUND_PATH = os.path.join(MENU_DIR, "background.png")
+# Панель-свиток, на которой лежат пункты меню.
+MENU_PANEL_PATH = os.path.join(MENU_DIR, "panel.png")
+# Шаблон пути к спрайтам облаков (6 штук: cloud_1.png ... cloud_6.png).
+MENU_CLOUD_PATH_TMPL = os.path.join(MENU_DIR, "cloud_{}.png")
+MENU_CLOUD_COUNT = 6
+
+# Направление движения облаков: "right" (слева направо) или "left".
+MENU_CLOUD_DIRECTION = "right"
+# Диапазон скоростей облаков (пиксели/сек) — берётся случайно из [min, max].
+# Разные скорости дают лёгкий эффект параллакса и живость.
+MENU_CLOUD_SPEED_RANGE = (14, 46)
+# Диапазон масштаба облаков (доля от исходного размера).
+MENU_CLOUD_SCALE_RANGE = (0.55, 1.15)
+# Прозрачность облаков (0..255). Чуть приглушаем, чтобы не спорили с фоном.
+MENU_CLOUD_ALPHA = 235
+
+# Ширина панели-свитка как доля от ширины экрана.
+MENU_PANEL_WIDTH_RATIO = 0.4
+# Высота панели-свитка как доля от высоты экрана (для вертикального свитка).
+MENU_PANEL_HEIGHT_RATIO = 0.7
+# Смещение центра панели по вертикали (доля высоты экрана; 0.5 = центр).
+MENU_PANEL_CENTER_Y_RATIO = 0.5
+
+# Заголовок игры на панели.
+MENU_TITLE = "AUTO ARSENAL"
+# Пункты меню (id, подпись). Обрабатываются в main.py.
+MENU_ITEMS = [
+    ("play", "Играть"),
+    ("settings", "Настройки"),
+    ("records", "Рекорды"),
+    ("quit", "Выход"),
+]
+
+# Цвета текста меню (в тон пергаменту — тёмно-коричневый).
+MENU_TITLE_COLOR = (74, 47, 24)
+MENU_ITEM_COLOR = (92, 62, 34)
+MENU_ITEM_HOVER_COLOR = (150, 92, 30)
+MENU_TITLE_FONT_SIZE = 32
+MENU_ITEM_FONT_SIZE = 24
+# Цвет неба-заглушки, если фон не загрузился.
+MENU_FALLBACK_SKY = (128, 116, 168)
+
 # ---------- Тайлы и карта ----------
 TILE_SIZE = 3000
 
@@ -100,7 +147,7 @@ PROJECTILE_SIZE = (96, 96)             # размер снаряда на экр
 PROJECTILE_ROTATE_TO_DIRECTION = True
 # Радиус попадания снаряда (пиксели). Не зависит от размера картинки,
 # чтобы прозрачные поля спрайта не мешали регистрации удара.
-PROJECTILE_HIT_RADIUS = 30
+PROJECTILE_HIT_RADIUS = 14
 
 # ---------- Враги ----------
 # Ассет врага. Реализован так же, как игрок (спрайт-листы). Пока None -> заглушка.

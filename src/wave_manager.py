@@ -24,8 +24,32 @@ class WaveManager:
     def _enemies_in_wave(self):
         return settings.WAVE_BASE_ENEMY_COUNT + self.wave_number * settings.WAVE_ENEMY_GROWTH
 
-    def _hp_multiplier(self):
-        return 1.0 + self.wave_number * settings.WAVE_HP_SCALING
+    def _type_weights(self):
+        """
+        Вес каждого разблокированного типа для текущей волны. Чем дольше тип
+        разблокирован, тем больше его доля (постепенно вытесняет слабых, но
+        не полностью — снизу вес ограничен ENEMY_TYPE_MIN_WEIGHT).
+        Возвращает {тип: вес}. Пустой dict -> фолбэк на slime1.
+        """
+        weights = {}
+        for etype in settings.ENEMY_TYPES:
+            unlock = settings.ENEMY_TYPE_UNLOCK_WAVE.get(etype, 1)
+            if self.wave_number < unlock:
+                continue  # тип ещё не разблокирован
+            waves_since = self.wave_number - unlock
+            w = settings.ENEMY_TYPE_BASE_WEIGHT + waves_since * settings.ENEMY_TYPE_WEIGHT_GROWTH
+            w = max(settings.ENEMY_TYPE_MIN_WEIGHT, w)
+            weights[etype] = w
+        return weights
+
+    def _pick_enemy_type(self):
+        """Случайный тип врага по весам (процентная доля от волны)."""
+        weights = self._type_weights()
+        if not weights:
+            return "slime1"
+        types = list(weights.keys())
+        values = list(weights.values())
+        return random.choices(types, weights=values, k=1)[0]
 
     def _random_edge_position(self, player_pos):
         """Точка на случайном краю карты (враги набегают снаружи)."""
@@ -56,7 +80,8 @@ class WaveManager:
             self.spawn_timer -= dt
             if self.spawn_timer <= 0 and self.to_spawn > 0:
                 pos = self._random_edge_position(player.pos)
-                enemies_group.add(Enemy(pos, hp_multiplier=self._hp_multiplier()))
+                etype = self._pick_enemy_type()
+                enemies_group.add(Enemy(pos, enemy_type=etype, wave_number=self.wave_number))
                 self.to_spawn -= 1
                 self.spawn_timer = settings.WAVE_SPAWN_INTERVAL
 

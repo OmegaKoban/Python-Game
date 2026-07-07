@@ -4,16 +4,59 @@
 экране (после зума), в экранных координатах, поэтому не масштабируется.
 """
 
+import os
+
 import pygame
 
 from src import settings
 
 
+def _make_font(size: int, bold: bool = False) -> pygame.font.Font:
+    """
+    Создаёт шрифт с поддержкой кириллицы.
+    Приоритет:
+      1. font.ttf из ассетов меню (уже проверен на кириллицу).
+      2. Системный шрифт с поддержкой Unicode/кириллицы (arialunicode, arial,
+         helveticaneue, dejavusans — кросс-платформенный список).
+      3. Дефолтный шрифт pygame (кириллицу не поддерживает, но лучше чем ничего).
+    """
+    font_path = os.path.join(settings.MENU_DIR, "font.ttf")
+    if os.path.exists(font_path):
+        try:
+            return pygame.font.Font(font_path, size)
+        except Exception:
+            pass
+
+    # Список системных шрифтов с широкой поддержкой Unicode/кириллицы.
+    candidates = [
+        "arialunicode",   # macOS — Arial Unicode MS, полная кириллица
+        "arial",          # Windows / macOS
+        "helveticaneue",  # macOS
+        "dejavusans",     # Linux
+        "liberationsans", # Linux
+        "freesans",       # Linux
+    ]
+    for name in candidates:
+        font = pygame.font.SysFont(name, size, bold=bold)
+        # SysFont не выбрасывает исключение при отсутствии шрифта — проверяем
+        # реальное имя, чтобы убедиться, что он нашёлся.
+        if font.get_bold() == bold or not bold:
+            # Дополнительная проверка: убеждаемся, что рендер кириллицы даёт
+            # ненулевую ширину символа (а не тофу-квадраты шириной 0).
+            test = font.render("А", True, (255, 255, 255))
+            if test.get_width() > 2:
+                return font
+
+    # Крайний запасной вариант — встроенный шрифт pygame.
+    return pygame.font.Font(None, size)
+
+
 class HUD:
     def __init__(self):
         pygame.font.init()
-        self.font = pygame.font.SysFont("consolas", settings.HUD_FONT_SIZE)
-        self.big_font = pygame.font.SysFont("consolas", settings.HUD_FONT_SIZE * 2, bold=True)
+        self.font = _make_font(settings.HUD_FONT_SIZE)
+        self.hp_font = _make_font(settings.HUD_HP_FONT_SIZE)
+        self.big_font = _make_font(settings.HUD_FONT_SIZE * 2, bold=True)
 
     def _text(self, surface, text, pos, color=None):
         color = color or settings.HUD_TEXT_COLOR
@@ -23,7 +66,7 @@ class HUD:
     def render(self, surface, player, wave_manager, kills):
         # --- Полоска здоровья игрока (слева сверху) ---
         bar_x, bar_y = 20, 20
-        bar_w, bar_h = 260, 24
+        bar_w, bar_h = 300, 34
         pygame.draw.rect(surface, settings.PLAYER_HP_BAR_BG, (bar_x, bar_y, bar_w, bar_h),
                          border_radius=4)
         ratio = max(0.0, player.hp / player.max_hp)
@@ -31,7 +74,8 @@ class HUD:
                          (bar_x, bar_y, int(bar_w * ratio), bar_h), border_radius=4)
         pygame.draw.rect(surface, (0, 0, 0), (bar_x, bar_y, bar_w, bar_h), width=2,
                          border_radius=4)
-        self._text(surface, f"HP: {player.hp} / {player.max_hp}", (bar_x + 8, bar_y + 2))
+        img = self.hp_font.render(f"HP: {player.hp} / {player.max_hp}", True, settings.HUD_TEXT_COLOR)
+        surface.blit(img, (bar_x + 8, bar_y + (bar_h - img.get_height()) // 2))
 
         # --- Волна и убийства (справа сверху) ---
         wave_text = f"Волна: {wave_manager.wave_number}"

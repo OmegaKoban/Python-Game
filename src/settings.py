@@ -37,7 +37,9 @@ PLAYER_ATTACK_ANIMATION_SPEED = 14
 
 # ---------- Окно ----------
 # Режимы: "fullscreen" | "borderless" | "window"
-SCREEN_MODE = "borderless"
+# На macOS "borderless" (NOFRAME) не скрывает системный menu bar (Wi-Fi, время и т.д.)
+# — используй "fullscreen" для полного захвата экрана.
+SCREEN_MODE = "fullscreen"
 SCREEN_WIDTH = 960   # используется только при SCREEN_MODE = "window"
 SCREEN_HEIGHT = 640
 FPS = 60
@@ -65,7 +67,7 @@ MENU_CLOUD_SCALE_RANGE = (0.55, 1.15)
 MENU_CLOUD_ALPHA = 235
 
 # Ширина панели-свитка как доля от ширины экрана.
-MENU_PANEL_WIDTH_RATIO = 0.4
+MENU_PANEL_WIDTH_RATIO = 0.48
 # Высота панели-свитка как доля от высоты экрана (для вертикального свитка).
 MENU_PANEL_HEIGHT_RATIO = 0.7
 # Смещение центра панели по вертикали (доля высоты экрана; 0.5 = центр).
@@ -90,7 +92,11 @@ MENU_ITEM_FONT_SIZE = 24
 # Цвет неба-заглушки, если фон не загрузился.
 MENU_FALLBACK_SKY = (128, 116, 168)
 
-# ---------- Тайлы и карта ----------
+# ---------- Настройки (экран настроек) ----------
+SETTINGS_TITLE = "НАСТРОЙКИ"
+SETTINGS_PLAYER_NAME = "Игрок"   # имя игрока
+SETTINGS_BRIGHTNESS = 1.0         # яркость игры (0.2 — 1.0)
+SETTINGS_VOLUME = 0.5             # громкость (0.0 — 1.0)
 TILE_SIZE = 3000
 
 # Карта фиксированного размера — сколько тайлов по ширине и высоте.
@@ -202,6 +208,7 @@ BACKGROUND_COLOR = (20, 20, 30)
 
 # HUD
 HUD_FONT_SIZE = 22
+HUD_HP_FONT_SIZE = 20   # шрифт текста "HP: X / Y" на полоске здоровья
 HUD_TEXT_COLOR = (235, 235, 245)
 PLAYER_HP_BAR_BG = (60, 20, 25)
 PLAYER_HP_BAR_FG = (70, 210, 120)

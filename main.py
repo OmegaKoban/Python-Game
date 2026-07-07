@@ -25,7 +25,7 @@ from src.player import Player
 from src.camera import Camera
 from src.wave_manager import WaveManager
 from src.hud import HUD
-from src.menu import Menu
+from src.menu import Menu, SettingsMenu
 
 
 class Game:
@@ -118,8 +118,7 @@ class Game:
         self.hud.render(self.screen, self.player, self.wave_manager, self.kills)
         if self.game_over:
             self.hud.render_game_over(self.screen, self.kills, self.wave_manager.wave_number)
-
-        pygame.display.flip()
+        # flip() намеренно убран — его вызывает main() после наложения оверлея яркости.
 
 
 def create_screen():
@@ -154,6 +153,7 @@ def create_screen():
 # Состояния приложения.
 STATE_MENU = "menu"
 STATE_PLAYING = "playing"
+STATE_SETTINGS = "settings"
 
 
 def main():
@@ -163,8 +163,13 @@ def main():
     clock = pygame.time.Clock()
 
     menu = Menu(screen)
+    settings_menu = None   # создаётся лазиво при первом открытии
     game = None  # игра создаётся при нажатии «Играть»
     state = STATE_MENU
+
+    # Surface для оверлея яркости — создаём один раз, не каждый кадр.
+    dim_overlay = pygame.Surface(screen.get_size())
+    dim_overlay.fill((0, 0, 0))
 
     running = True
     while running:
@@ -181,13 +186,19 @@ def main():
                     game = Game(screen)
                     state = STATE_PLAYING
                 elif choice == "settings":
-                    state = STATE_SETTINGS      # откроем экран настроек
+                    settings_menu = SettingsMenu(screen)
+                    state = STATE_SETTINGS
                 elif choice == "records":
-                    state = STATE_RECORDS       # откроем экран рекордов
+                    pass   # откроем экран рекордов позже
                 elif choice == "quit":
                     running = False
                 elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
                     running = False
+
+            elif state == STATE_SETTINGS:
+                result = settings_menu.handle_event(event)
+                if result == "back":
+                    state = STATE_MENU
 
             elif state == STATE_PLAYING:
                 if event.type == pygame.KEYDOWN:
@@ -201,10 +212,20 @@ def main():
         if state == STATE_MENU:
             menu.update(dt)
             menu.render()
-            pygame.display.flip()
+        elif state == STATE_SETTINGS:
+            settings_menu.update(dt)
+            settings_menu.render()
         else:
             game.update(dt)
-            game.render()  # render сам вызывает pygame.display.flip()
+            game.render()
+
+        # Яркость — применяется поверх любого экрана.
+        # brightness=1.0 -> alpha=0 (не влияет), brightness=0.2 -> alpha=178.
+        alpha = int((1.0 - settings.SETTINGS_BRIGHTNESS) * 222)
+        if alpha > 0:
+            dim_overlay.set_alpha(alpha)
+            screen.blit(dim_overlay, (0, 0))
+        pygame.display.flip()
 
     pygame.quit()
 

@@ -25,8 +25,11 @@ from src.player import Player
 from src.camera import Camera
 from src.wave_manager import WaveManager
 from src.hud import HUD
+
+from src.pickups import Pickup
 from src.menu import Menu, SettingsMenu, RecordsMenu
 from src.records import add_record
+
 
 
 class Game:
@@ -51,8 +54,14 @@ class Game:
         # Промежуточный surface в размер видимой области мира (до зума).
         self.view_surface = pygame.Surface(self.camera.get_view_surface_size())
 
+        self.pickups = []
+        self.level_up_active = False
+        self.levelup_choices = []
+        self.levelup_selected = 0
+        self.levelup_rects = []
+
     def update(self, dt):
-        if self.game_over:
+        if self.game_over or self.level_up_active:
             return
 
         # Игрок (движение + автоатака по врагам).
@@ -75,7 +84,18 @@ class Game:
         for enemy in list(self.enemies):
             if not enemy.is_alive:
                 self.kills += 1
+                for kind, value, pos in enemy.roll_drops():       # <-- ДОБАВИТЬ
+                    self.pickups.append(Pickup(pos, kind, value))  # <-- ДОБАВИТЬ
                 self.enemies.remove(enemy)
+
+        # Дропы: магнитятся к игроку, при подборе дают опыт / здоровье.  # <-- ДОБАВИТЬ весь блок
+        for pickup in list(self.pickups):
+            if pickup.update(dt, self.player):
+                if pickup.kind == "xp":
+                    self.player.add_xp(pickup.value)
+                elif pickup.kind == "heal":
+                    self.player.heal(pickup.value)
+        self.pickups = [p for p in self.pickups if p.alive]
 
         # Убираем отработавшие снаряды.
         self.projectiles = [p for p in self.projectiles if p.alive]
@@ -86,11 +106,20 @@ class Game:
         # Проверка поражения.
         if not self.player.is_alive:
             self.game_over = True
+            return                              # <-- ДОБАВИТЬ
+
+        # Повышение уровня: есть очередь выборов — встаём на паузу.  # <-- ДОБАВИТЬ весь блок
+        if self.player.pending_levelups > 0:
+            self._open_level_up()
 
     def render(self):
         # 1. Рендер мира в промежуточный surface (масштаб 1:1 мира).
         self.view_surface.fill(settings.BACKGROUND_COLOR)
         self.tilemap.render(self.view_surface, self.camera.offset)
+
+        # Дропы под персонажами.
+        for pickup in self.pickups:
+            pickup.render(self.view_surface, self.camera)
 
         # Снаряды под персонажами.
         for proj in self.projectiles:
@@ -103,6 +132,9 @@ class Game:
         # Игрок (мигает при неуязвимости после урона).
         if not (self.player.invuln_timer > 0 and int(self.player.invuln_timer * 20) % 2 == 0):
             self.view_surface.blit(self.player.image, self.camera.apply(self.player.rect))
+
+        # Эффекты активных способностей поверх.
+        self.player.abilities.render(self.view_surface, self.camera)    
 
         # Отладка: хитбокс игрока (красная рамка). Хитбоксы врагов рисуются в Enemy.render.
         if settings.DEBUG_HITBOXES:
@@ -119,7 +151,25 @@ class Game:
         self.hud.render(self.screen, self.player, self.wave_manager, self.kills)
         if self.game_over:
             self.hud.render_game_over(self.screen, self.kills, self.wave_manager.wave_number)
+        elif self.level_up_active:                                   
+            self.levelup_rects = self.hud.render_levelup(self.screen, self.player, self.levelup_choices, self.levelup_selected)    
         # flip() намеренно убран — его вызывает main() после наложения оверлея яркости.
+
+    def _open_level_up(self):
+        self.level_up_active = True
+        self.levelup_choices = self.player.roll_upgrade_choices()
+        self.levelup_selected = 0
+
+    def choose_upgrade(self, index):
+        if not (0 <= index < len(self.levelup_choices)):
+            return
+        self.player.apply_upgrade(self.levelup_choices[index])
+        if self.player.pending_levelups > 0:
+            self.levelup_choices = self.player.roll_upgrade_choices()
+            self.levelup_selected = 0
+        else:
+            self.level_up_active = False
+            self.levelup_choices = []    
 
 
 def create_screen():
@@ -212,7 +262,27 @@ def main():
                     state = STATE_MENU
 
             elif state == STATE_PLAYING:
-                if event.type == pygame.KEYDOWN:
+                if game.level_up_active:                          # <-- НОВАЯ ветка (меню уровня)
+                    if event.type == pygame.KEYDOWN:
+                        n = len(game.levelup_choices)
+                        if event.key in (pygame.K_1, pygame.K_KP1) and n >= 1:
+                            game.choose_upgrade(0)
+                        elif event.key in (pygame.K_2, pygame.K_KP2) and n >= 2:
+                            game.choose_upgrade(1)
+                        elif event.key in (pygame.K_3, pygame.K_KP3) and n >= 3:
+                            game.choose_upgrade(2)
+                        elif event.key in (pygame.K_LEFT, pygame.K_a) and n:
+                            game.levelup_selected = (game.levelup_selected - 1) % n
+                        elif event.key in (pygame.K_RIGHT, pygame.K_d) and n:
+                            game.levelup_selected = (game.levelup_selected + 1) % n
+                        elif event.key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE):
+                            game.choose_upgrade(game.levelup_selected)
+                    elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                        for i, rect in enumerate(game.levelup_rects):
+                            if rect.collidepoint(event.pos):
+                                game.choose_upgrade(i)
+                                break
+                elif event.type == pygame.KEYDOWN:                # <-- ТВОЯ ПРЕЖНЯЯ обработка
                     if event.key == pygame.K_ESCAPE:
                         state = STATE_MENU
                     elif event.key == pygame.K_r and game.game_over:

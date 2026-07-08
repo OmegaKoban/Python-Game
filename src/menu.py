@@ -273,7 +273,7 @@ class SettingsMenu:
         "АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ"
         "0123456789_- "
     )
-    _NAME_MAX_LEN = 16
+    _NAME_MAX_LEN = 5
 
     def __init__(self, screen):
         self.screen = screen
@@ -456,8 +456,7 @@ class SettingsMenu:
                 else:
                     ch = event.unicode
                     if ch in self._NAME_ALLOWED and len(self.player_name) < self._NAME_MAX_LEN:
-                        # Проверяем что с новым символом строка ещё влезает в свиток.
-                        prefix = "Имя игрока: "
+                        prefix = "Имя игрока:"
                         test_w = self.item_font.size(prefix + self.player_name + ch + "|")[0]
                         max_w  = int(self.panel_w * 0.68)
                         if test_w <= max_w:
@@ -585,15 +584,12 @@ class SettingsMenu:
             arr_size = self.item_font.get_height()
 
             if key == "name":
-                # Вся строка через item_font (font.ttf), значение — тоже.
                 display  = self.player_name + ("|" if self._typing and self._cursor_vis else "")
-                line     = f"{label}: {display}"
+                line     = f"{label}:{display}"
                 lbl_surf = self.item_font.render(line, True, color)
-                # Обрезаем если не влезает в полезную ширину свитка.
                 max_w = int(self.panel_w * 0.68)
                 if lbl_surf.get_width() > max_w:
-                    # Укорачиваем display с конца до тех пор, пока не влезет.
-                    prefix = f"{label}: "
+                    prefix = f"{label}:"
                     trimmed = display
                     while trimmed and self.item_font.size(prefix + trimmed)[0] > max_w:
                         trimmed = trimmed[:-1]
@@ -627,3 +623,217 @@ class SettingsMenu:
                 bottom=self.panel_y + self.panel_h - 14,
             ))
         # flip() вызывается в main() после наложения оверлея яркости.
+
+
+class RecordsMenu:
+    """
+    Экран таблицы рекордов. Тот же визуал: фон, облака, свиток.
+    Топ-10 по убийствам. ESC / клик «Назад» — возврат в меню.
+    """
+
+    COLS = [
+        ("rank",  "#",      0.08),   # (ключ, заголовок, доля ширины)
+        ("name",  "Игрок",  0.32),
+        ("kills", "Убито",  0.30),
+        ("waves", "Волны",  0.30),
+    ]
+
+    def __init__(self, screen):
+        self.screen = screen
+        self.w, self.h = screen.get_size()
+
+        bg = _load_image(settings.MENU_BACKGROUND_PATH, alpha=False)
+        self.background = (
+            pygame.transform.smoothscale(bg, (self.w, self.h)) if bg else None
+        )
+
+        cloud_images = []
+        for i in range(1, settings.MENU_CLOUD_COUNT + 1):
+            img = _load_image(settings.MENU_CLOUD_PATH_TMPL.format(i))
+            if img:
+                cloud_images.append(img)
+        self.clouds = []
+        if cloud_images:
+            count = max(settings.MENU_CLOUD_COUNT, len(cloud_images))
+            for k in range(count):
+                base = cloud_images[k % len(cloud_images)]
+                self.clouds.append(Cloud(base, self.w, self.h, settings.MENU_CLOUD_DIRECTION))
+
+        panel = _load_image(settings.MENU_PANEL_PATH)
+        target_w = int(self.w * settings.MENU_PANEL_WIDTH_RATIO)
+        target_h = int(self.h * settings.MENU_PANEL_HEIGHT_RATIO)
+        self.panel = (
+            pygame.transform.smoothscale(panel, (target_w, target_h)) if panel else None
+        )
+        self.panel_w, self.panel_h = target_w, target_h
+        self.panel_x = (self.w - target_w) // 2
+        self.panel_y = int(self.h * settings.MENU_PANEL_CENTER_Y_RATIO) - target_h // 2
+
+        font_path = os.path.join(settings.MENU_DIR, "font.ttf")
+        ref = target_w / (self.w * settings.MENU_PANEL_WIDTH_RATIO)
+        title_size  = max(24, int(settings.MENU_TITLE_FONT_SIZE * ref))
+        header_size = max(14, int(settings.MENU_ITEM_FONT_SIZE * ref * 0.72))
+        row_size    = max(13, int(settings.MENU_ITEM_FONT_SIZE * ref * 0.65))
+        back_size   = max(16, int(settings.MENU_ITEM_FONT_SIZE * ref))
+
+        if os.path.exists(font_path):
+            self.title_font  = pygame.font.Font(font_path, title_size)
+            self.header_font = pygame.font.Font(font_path, header_size)
+            self.row_font    = pygame.font.Font(font_path, row_size)
+            self.back_font   = pygame.font.Font(font_path, back_size)
+        else:
+            self.title_font  = pygame.font.SysFont("georgia", title_size,  bold=True)
+            self.header_font = pygame.font.SysFont("georgia", header_size, bold=True)
+            self.row_font    = pygame.font.SysFont("georgia", row_size)
+            self.back_font   = pygame.font.SysFont("georgia", back_size,   bold=True)
+
+        self._back_rect = pygame.Rect(0, 0, 0, 0)
+        self._back_hovered = False
+        self._reload()
+
+    def _reload(self):
+        from src.records import load_records
+        self.records = load_records()
+
+    # ------------------------------------------------------------------ helpers
+    def _draw_back_arrow(self, surface, x, cy, size, color):
+        lw = int(size * 0.9)
+        th = int(size * 0.45)
+        tw = int(size * 0.38)
+        lh = max(2, int(size * 0.13))
+        pygame.draw.rect(surface, color,
+                         pygame.Rect(x + tw - 2, cy - lh // 2, lw - tw + 2, lh))
+        pygame.draw.polygon(surface, color, [
+            (x + tw, cy - th // 2),
+            (x + tw, cy + th // 2),
+            (x,      cy),
+        ])
+
+    # ------------------------------------------------------------------ input
+    def handle_event(self, event):
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_ESCAPE:
+                return "back"
+            if event.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
+                return "back"
+
+        elif event.type == pygame.MOUSEMOTION:
+            self._back_hovered = self._back_rect.collidepoint(event.pos)
+
+        elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            if self._back_rect.collidepoint(event.pos):
+                return "back"
+
+        return None
+
+    # ------------------------------------------------------------------ update
+    def update(self, dt):
+        for cloud in self.clouds:
+            cloud.update(dt)
+
+    # ------------------------------------------------------------------ render
+    def render(self):
+        surf = self.screen
+
+        # 1. Фон.
+        if self.background is not None:
+            surf.blit(self.background, (0, 0))
+        else:
+            surf.fill(settings.MENU_FALLBACK_SKY)
+
+        # 2. Облака.
+        for cloud in self.clouds:
+            cloud.render(surf)
+
+        # 3. Свиток.
+        if self.panel is not None:
+            surf.blit(self.panel, (self.panel_x, self.panel_y))
+        else:
+            pygame.draw.rect(surf, (222, 200, 150),
+                             (self.panel_x, self.panel_y, self.panel_w, self.panel_h),
+                             border_radius=12)
+            pygame.draw.rect(surf, (120, 90, 50),
+                             (self.panel_x, self.panel_y, self.panel_w, self.panel_h),
+                             width=4, border_radius=12)
+
+        inner_top    = self.panel_y + int(self.panel_h * 0.10)
+        inner_bottom = self.panel_y + int(self.panel_h * 0.91)
+        inner_cx     = self.panel_x + self.panel_w // 2
+        table_w      = int(self.panel_w * 0.68)
+        table_x      = inner_cx - table_w // 2 + 5
+        col_color    = settings.MENU_TITLE_COLOR
+        row_color    = settings.MENU_ITEM_COLOR
+
+        # 4. Заголовок.
+        title_surf = self.title_font.render("РЕКОРДЫ", True, col_color)
+        title_pos  = title_surf.get_rect(centerx=inner_cx, top=inner_top)
+        surf.blit(title_surf, title_pos)
+
+        # 5. Шапка таблицы.
+        header_y = inner_top + title_surf.get_height() + int(self.panel_h * 0.04)
+        self._draw_row(surf, header_y, table_x, table_w,
+                       ["#", "Игрок", "Убито", "Волны"],
+                       self.header_font, col_color, bold_line=True)
+
+        # 6. Строки рекордов.
+        row_h   = self.row_font.get_height() + int(self.panel_h * 0.018)
+        rows_y0 = header_y + self.header_font.get_height() + int(self.panel_h * 0.025)
+
+        if not self.records:
+            empty = self.row_font.render("Нет рекордов", True, row_color)
+            surf.blit(empty, empty.get_rect(centerx=inner_cx,
+                                            top=rows_y0 + int(self.panel_h * 0.05)))
+        else:
+            for idx, rec in enumerate(self.records):
+                ry = rows_y0 + idx * row_h
+                if ry + row_h > inner_bottom - int(self.panel_h * 0.10):
+                    break
+                values = [
+                    str(idx + 1),
+                    rec.get("name", "—"),
+                    str(rec.get("kills", 0)),
+                    str(rec.get("waves", 0)),
+                ]
+                self._draw_row(surf, ry, table_x, table_w,
+                               values, self.row_font, row_color)
+
+        # 7. Кнопка «Назад».
+        back_y  = inner_bottom - self.back_font.get_height() - int(self.panel_h * 0.01)
+        back_cy = back_y + self.back_font.get_height() // 2
+        back_color = (180, 140, 80) if self._back_hovered else col_color
+        label   = self.back_font.render("Назад", True, back_color)
+        arr_sz  = self.back_font.get_height()
+        arr_w   = int(arr_sz * 0.9)
+        gap     = int(arr_sz * 0.3)
+        total   = arr_w + gap + label.get_width()
+        bx      = inner_cx - total // 2
+        self._draw_back_arrow(surf, bx, back_cy, arr_sz, back_color)
+        surf.blit(label, label.get_rect(midleft=(bx + arr_w + gap, back_cy)))
+        self._back_rect = pygame.Rect(bx, back_cy - arr_sz // 2, total, arr_sz)
+
+    def _draw_row(self, surf, y, table_x, table_w, values, font, color, bold_line=False):
+        """Рисует одну строку таблицы с пропорциональными колонками."""
+        col_widths = [int(table_w * ratio) for _, _, ratio in self.COLS]
+        x = table_x
+        for i, val in enumerate(values):
+            cw = col_widths[i]
+            text_surf = font.render(str(val), True, color)
+            # Обрезаем текст если не влезает в колонку.
+            if text_surf.get_width() > cw - 8:
+                # Укорачиваем строку с конца.
+                trimmed = str(val)
+                while trimmed and font.size(trimmed + "..")[0] > cw - 8:
+                    trimmed = trimmed[:-1]
+                text_surf = font.render(trimmed + (".." if trimmed != str(val) else ""), True, color)
+            # Первая колонка (номер) — по центру, остальные — слева.
+            if i == 0:
+                tx = x + cw // 2 - text_surf.get_width() // 2
+            else:
+                tx = x + 4
+            surf.blit(text_surf, (tx, y))
+            x += cw
+        if bold_line:
+            line_y = y + font.get_height() + 3
+            pygame.draw.line(surf, color,
+                             (table_x, line_y),
+                             (table_x + table_w, line_y), 1)

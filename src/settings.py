@@ -239,7 +239,7 @@ ENEMY_TYPES = {
     "slime1": {
         "dir": "slime1",
         "frames": {"run": 8, "attack": 10, "hurt": 5, "death": 10},
-        "hp": 1130,        # <= 34 -> умирает с 1 удара
+        "hp": 30,        # <= 34 -> умирает с 1 удара
         "speed": 110,
         "damage": 8,
         "scale": 0.9,
@@ -247,7 +247,7 @@ ENEMY_TYPES = {
     },
     "slime2": {
         "dir": "slime2",
-        "frames": {"run": 8, "attack": 10, "hurt": 5, "death": 10},
+        "frames": {"run": 8, "attack": 11, "hurt": 5, "death": 10},
         "hp": 60,        # 2 удара
         "speed": 120,
         "damage": 12,
@@ -256,7 +256,7 @@ ENEMY_TYPES = {
     },
     "slime3": {
         "dir": "slime3",
-        "frames": {"run": 8, "attack": 10, "hurt": 5, "death": 10},
+        "frames": {"run": 8, "attack": 9, "hurt": 5, "death": 10},
         "hp": 100,       # 3 удара
         "speed": 130,
         "damage": 16,
@@ -267,7 +267,7 @@ ENEMY_TYPES = {
     "orc1": {
         "dir": "orc1",
         "frames": {"run": 8, "attack": 8, "hurt": 6, "death": 8},
-        "hp": 1160,        # 2 удара
+        "hp": 60,        # 2 удара
         "speed": 85,
         "damage": 14,
         "scale": 1.0,

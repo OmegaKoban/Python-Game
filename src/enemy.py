@@ -17,6 +17,7 @@
 """
 
 import pygame
+import random
 
 from src import settings
 from src.entity import AnimatedEntity
@@ -200,3 +201,13 @@ class Enemy(AnimatedEntity):
         pygame.draw.rect(surface, settings.ENEMY_HP_BAR_BG, (x, y, bar_w, bar_h))
         ratio = max(0.0, self.hp / self.max_hp)
         pygame.draw.rect(surface, settings.ENEMY_HP_BAR_FG, (x, y, int(bar_w * ratio), bar_h))
+
+    def roll_drops(self):
+        """Возвращает список дропов: (kind, value, (x, y)). Опыт — всегда, хилка — по шансу."""
+        drops = []
+        pos = (self.pos.x, self.pos.y)
+        xp = settings.ENEMY_XP_REWARD.get(self.enemy_type, settings.ENEMY_XP_DEFAULT)
+        drops.append(("xp", xp, pos))
+        if random.random() < settings.HEAL_DROP_CHANCE:
+            drops.append(("heal", settings.HEAL_DROP_AMOUNT, pos))
+        return drops    

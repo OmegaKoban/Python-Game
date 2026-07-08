@@ -195,6 +195,102 @@ WAVE_SPAWN_INTERVAL = 0.35
 # Насколько усиливается HP врагов с каждой волной (множитель на номер волны).
 WAVE_HP_SCALING = 0.15
 
+# ---------- Опыт, уровни и прокачка ----------
+# Прогрессивная шкала опыта: сколько XP нужно на каждый следующий уровень.
+# Порог уровня N = XP_BASE * (XP_GROWTH ** (N - 1)) + XP_FLAT_ADD*(N-1).
+XP_BASE = 5              # XP для перехода с 1 на 2 уровень
+XP_GROWTH = 1.35         # во сколько раз растёт порог каждый уровень
+XP_FLAT_ADD = 3          # плюс фиксированная прибавка к порогу на каждом уровне
+
+# Сколько опыта даёт враг каждого типа (при смерти). Сильные типы — больше XP.
+ENEMY_XP_REWARD = {
+    "slime1": 1, "slime2": 2, "slime3": 4,
+    "orc1": 2, "orc2": 4, "orc3": 7,
+}
+ENEMY_XP_DEFAULT = 1     # если тип не найден в таблице
+
+# --- Дропы (выпадают из врага при смерти) ---
+HEAL_DROP_CHANCE = 0.08          # шанс выпадения хилки (0..1), 0.08 = 8%
+HEAL_DROP_AMOUNT = 25            # сколько HP восстанавливает одна хилка
+
+# --- Подбор (магнит) ---
+PICKUP_MAGNET_RADIUS = 160       # радиус, где дроп начинает притягиваться
+PICKUP_COLLECT_RADIUS = 34       # радиус сбора
+PICKUP_MAGNET_SPEED = 420        # скорость притягивания (пиксели/сек)
+PICKUP_SIZE = 22                 # размер иконки дропа (пиксели)
+PICKUP_LIFETIME = 25.0           # через сколько секунд несобранный дроп исчезает
+
+# Цвета-заглушки дропов (пока нет спрайтов).
+XP_PICKUP_COLOR = (90, 200, 255)     # опыт — голубой кристалл
+HEAL_PICKUP_COLOR = (90, 230, 120)   # хилка — зелёный крест
+# Пути к спрайтам дропов. None -> рисуется фигура-заглушка.
+XP_PICKUP_IMAGE_PATH = None
+HEAL_PICKUP_IMAGE_PATH = os.path.join(ASSETS_DIR, "effects", "heal.png")
+
+# ---------- Улучшения при повышении уровня ----------
+LEVELUP_CHOICES = 3
+
+UPGRADE_ATTACK_DAMAGE_MULT = 0.10   # +10% к силе атаки
+UPGRADE_ATTACK_SPEED_MULT = 0.07    # +7% к скорости атаки (уменьшает интервал)
+UPGRADE_MAX_HP_ADD = 20             # +20 к максимальному здоровью (и текущему)
+PLAYER_ATTACK_INTERVAL_MIN = 0.15   # минимальный интервал атаки (не уйдёт в 0)
+
+# Список пассивных улучшений (id, подпись, описание).
+UPGRADES_PASSIVE = [
+    ("dmg",   "Сила атаки +10%",   "Увеличивает урон всех атак"),
+    ("aspd",  "Скорость атаки +7%", "Атаки происходят чаще"),
+    ("hp",    "Здоровье +20",      "Увеличивает максимум здоровья и лечит"),
+]
+
+# ---------- Активные способности ----------
+# Модель как в Vampire Survivors: повторный выбор = +1 уровень способности.
+ABILITY_START = "fireball"   # способность, выдаваемая изначально (огненная пуля)
+
+ABILITIES = {
+    "fireball": {
+        "name": "Огненная пуля", "desc": "Вылетает в ближайшего врага",
+        "kind": "projectile", "max_level": 8,
+        "cooldown": 0.9, "cooldown_mult": 0.92,
+        "damage": 20, "damage_add": 8,
+        "radius": 0, "radius_add": 0, "speed": 520,
+        "color": (255, 150, 60), "image_path": None,
+    },
+    "aura": {
+        "name": "Огненная аура", "desc": "Урон по области вокруг игрока",
+        "kind": "aura", "max_level": 8,
+        "cooldown": 0.5, "cooldown_mult": 0.95,
+        "damage": 8, "damage_add": 4,
+        "radius": 120, "radius_add": 16,
+        "color": (255, 120, 40), "image_path": None,
+    },
+    "lightning": {
+        "name": "Атака молнией", "desc": "Сама бьёт по ближайшему врагу",
+        "kind": "lightning", "max_level": 8,
+        "cooldown": 1.4, "cooldown_mult": 0.9,
+        "damage": 30, "damage_add": 12,
+        "radius": 500, "radius_add": 40,
+        "color": (120, 200, 255), "image_path": None,
+    },
+    "fireball_aoe": {
+        "name": "Фаербол", "desc": "Взрыв по области в ближайшем враге",
+        "kind": "fireball_aoe", "max_level": 8,
+        "cooldown": 2.2, "cooldown_mult": 0.9,
+        "damage": 40, "damage_add": 16,
+        "radius": 90, "radius_add": 12, "speed": 380,
+        "color": (255, 90, 30), "image_path": None,
+    },
+    "meteor": {
+        "name": "Метеорит", "desc": "Падает в случайное место, урон по области",
+        "kind": "meteor", "max_level": 8,
+        "cooldown": 3.0, "cooldown_mult": 0.9,
+        "damage": 60, "damage_add": 24,
+        "radius": 130, "radius_add": 16, "fall_time": 0.8,
+        "color": (255, 70, 20), "image_path": None,
+    },
+}
+
+ABILITY_ORDER = ["fireball", "aura", "lightning", "fireball_aoe", "meteor"]
+
 # ---------- Камера ----------
 CAMERA_ZOOM = 0.9
 
@@ -239,7 +335,7 @@ ENEMY_TYPES = {
     "slime1": {
         "dir": "slime1",
         "frames": {"run": 8, "attack": 10, "hurt": 5, "death": 10},
-        "hp": 1130,        # <= 34 -> умирает с 1 удара
+        "hp": 30,        # <= 34 -> умирает с 1 удара
         "speed": 110,
         "damage": 8,
         "scale": 0.9,
@@ -267,7 +363,7 @@ ENEMY_TYPES = {
     "orc1": {
         "dir": "orc1",
         "frames": {"run": 8, "attack": 8, "hurt": 6, "death": 8},
-        "hp": 1160,        # 2 удара
+        "hp": 60,        # 2 удара
         "speed": 85,
         "damage": 14,
         "scale": 1.0,
@@ -330,3 +426,7 @@ WAVE_ENEMY_GROWTH = 3
 WAVE_SPAWN_INTERVAL = 0.35
 # Насколько усиливается HP врагов с каждой волной (множитель на номер волны).
 WAVE_HP_SCALING = 0.15
+
+# Полоса опыта (внизу экрана)
+XP_BAR_BG = (30, 30, 50)
+XP_BAR_FG = (120, 200, 255)

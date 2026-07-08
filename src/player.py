@@ -9,6 +9,7 @@ import pygame
 from src import settings
 from src.entity import AnimatedEntity
 from src.projectile import Projectile
+from src.abilities import AbilityManager
 
 
 class Player(AnimatedEntity):
@@ -57,6 +58,19 @@ class Player(AnimatedEntity):
         # Цель, зафиксированная в момент начала атаки (для наведения снаряда/удара).
         self.attack_target = None
         self.pending_projectiles = []  # снаряды, которые надо добавить в игру
+
+         # --- Опыт и уровень ---
+        self.level = 1
+        self.xp = 0
+        self.xp_to_next = self._xp_threshold(1)
+        self.pending_levelups = 0
+
+        # --- Множители от пассивных улучшений ---
+        self.damage_mult = 1.0
+        self.attack_interval = settings.PLAYER_ATTACK_INTERVAL
+
+        # --- Активные способности ---
+        self.abilities = AbilityManager()
 
         # --- Неуязвимость ---
         self.invuln_timer = 0.0
@@ -133,7 +147,7 @@ class Player(AnimatedEntity):
             proj = Projectile(
                 start_pos=(self.pos.x, self.pos.y),
                 target_pos=(target.pos.x, target.pos.y),
-                damage=settings.PLAYER_ATTACK_DAMAGE,
+                damage = int(round(settings.PLAYER_ATTACK_DAMAGE * self.damage_mult)),
             )
             self.pending_projectiles.append(proj)
         else:
@@ -197,7 +211,7 @@ class Player(AnimatedEntity):
 
         # Автоатака по таймеру: копим интервал, при наличии цели — бьём.
         self.attack_timer += dt
-        if not self.is_attacking and self.attack_timer >= settings.PLAYER_ATTACK_INTERVAL:
+        if not self.is_attacking and self.attack_timer >= self.attack_interval:
             target = self._find_nearest_enemy(enemies)
             if target is not None:
                 self.attack_timer = 0.0
@@ -210,8 +224,58 @@ class Player(AnimatedEntity):
             self.set_state("walk" if moving else "idle")
             self.animate(dt, loop=True)
 
+        self.abilities.update(dt, self, enemies, tilemap)    
+
     def collect_projectiles(self):
         """Отдаёт накопленные снаряды и очищает буфер (вызывается из main)."""
         projs = self.pending_projectiles
         self.pending_projectiles = []
         return projs
+
+    # ---------- Опыт и уровни ----------
+    def _xp_threshold(self, level):
+        base = settings.XP_BASE * (settings.XP_GROWTH ** (level - 1))
+        return int(round(base + settings.XP_FLAT_ADD * (level - 1)))
+
+    def add_xp(self, amount):
+        self.xp += amount
+        while self.xp >= self.xp_to_next:
+            self.xp -= self.xp_to_next
+            self.level += 1
+            self.pending_levelups += 1
+            self.xp_to_next = self._xp_threshold(self.level)
+
+    def heal(self, amount):
+        self.hp = min(self.max_hp, self.hp + amount)
+
+    def roll_upgrade_choices(self):
+        import random
+        pool = []
+        for uid, title, desc in settings.UPGRADES_PASSIVE:
+            pool.append({"type": "passive", "id": uid, "title": title, "desc": desc})
+        for aid in self.abilities.available_ability_upgrades():
+            cfg = settings.ABILITIES[aid]
+            lvl = self.abilities.level_of(aid)
+            title = f"{cfg['name']} (новая)" if lvl == 0 else f"{cfg['name']} ур. {lvl + 1}"
+            pool.append({"type": "ability", "id": aid, "title": title, "desc": cfg["desc"]})
+        random.shuffle(pool)
+        return pool[:settings.LEVELUP_CHOICES]
+
+    def apply_upgrade(self, choice):
+        ctype = choice.get("type")
+        cid = choice.get("id")
+        if ctype == "passive":
+            if cid == "dmg":
+                self.damage_mult += settings.UPGRADE_ATTACK_DAMAGE_MULT
+            elif cid == "aspd":
+                self.attack_interval = max(
+                    settings.PLAYER_ATTACK_INTERVAL_MIN,
+                    self.attack_interval * (1.0 - settings.UPGRADE_ATTACK_SPEED_MULT),
+                )
+            elif cid == "hp":
+                self.max_hp += settings.UPGRADE_MAX_HP_ADD
+                self.hp += settings.UPGRADE_MAX_HP_ADD
+        elif ctype == "ability":
+            self.abilities.add_or_upgrade(cid)
+        if self.pending_levelups > 0:
+            self.pending_levelups -= 1

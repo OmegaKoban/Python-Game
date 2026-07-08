@@ -25,7 +25,8 @@ from src.player import Player
 from src.camera import Camera
 from src.wave_manager import WaveManager
 from src.hud import HUD
-from src.menu import Menu, SettingsMenu
+from src.menu import Menu, SettingsMenu, RecordsMenu
+from src.records import add_record
 
 
 class Game:
@@ -154,6 +155,7 @@ def create_screen():
 STATE_MENU = "menu"
 STATE_PLAYING = "playing"
 STATE_SETTINGS = "settings"
+STATE_RECORDS = "records"
 
 
 def main():
@@ -163,9 +165,11 @@ def main():
     clock = pygame.time.Clock()
 
     menu = Menu(screen)
-    settings_menu = None   # создаётся лазиво при первом открытии
-    game = None  # игра создаётся при нажатии «Играть»
+    settings_menu = None
+    records_menu  = None
+    game = None
     state = STATE_MENU
+    _record_saved = False   # флаг: рекорд уже сохранён для текущей партии
 
     # Surface для оверлея яркости — создаём один раз, не каждый кадр.
     dim_overlay = pygame.Surface(screen.get_size())
@@ -184,12 +188,14 @@ def main():
                 choice = menu.handle_event(event)
                 if choice == "play":
                     game = Game(screen)
+                    _record_saved = False
                     state = STATE_PLAYING
                 elif choice == "settings":
                     settings_menu = SettingsMenu(screen)
                     state = STATE_SETTINGS
                 elif choice == "records":
-                    pass   # откроем экран рекордов позже
+                    records_menu = RecordsMenu(screen)
+                    state = STATE_RECORDS
                 elif choice == "quit":
                     running = False
                 elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
@@ -200,13 +206,18 @@ def main():
                 if result == "back":
                     state = STATE_MENU
 
+            elif state == STATE_RECORDS:
+                result = records_menu.handle_event(event)
+                if result == "back":
+                    state = STATE_MENU
+
             elif state == STATE_PLAYING:
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
-                        # ESC в игре — возврат в меню.
                         state = STATE_MENU
                     elif event.key == pygame.K_r and game.game_over:
                         game.reset()
+                        _record_saved = False
 
         # 2. Update + 3. Render
         if state == STATE_MENU:
@@ -215,9 +226,17 @@ def main():
         elif state == STATE_SETTINGS:
             settings_menu.update(dt)
             settings_menu.render()
+        elif state == STATE_RECORDS:
+            records_menu.update(dt)
+            records_menu.render()
         else:
             game.update(dt)
             game.render()
+            # Сохранить рекорд при первом game over.
+            if game.game_over and not _record_saved:
+                add_record(settings.SETTINGS_PLAYER_NAME,
+                           game.kills, game.wave_manager.wave_number)
+                _record_saved = True
 
         # Яркость — применяется поверх любого экрана.
         # brightness=1.0 -> alpha=0 (не влияет), brightness=0.2 -> alpha=178.

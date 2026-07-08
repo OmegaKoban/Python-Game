@@ -343,7 +343,7 @@ ENEMY_TYPES = {
     },
     "slime2": {
         "dir": "slime2",
-        "frames": {"run": 8, "attack": 10, "hurt": 5, "death": 10},
+        "frames": {"run": 8, "attack": 11, "hurt": 5, "death": 10},
         "hp": 60,        # 2 удара
         "speed": 120,
         "damage": 12,
@@ -352,7 +352,7 @@ ENEMY_TYPES = {
     },
     "slime3": {
         "dir": "slime3",
-        "frames": {"run": 8, "attack": 10, "hurt": 5, "death": 10},
+        "frames": {"run": 8, "attack": 9, "hurt": 5, "death": 10},
         "hp": 100,       # 3 удара
         "speed": 130,
         "damage": 16,

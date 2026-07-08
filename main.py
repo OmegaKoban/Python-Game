@@ -204,6 +204,7 @@ def create_screen():
 # Состояния приложения.
 STATE_MENU = "menu"
 STATE_PLAYING = "playing"
+STATE_PAUSED = "paused"
 STATE_SETTINGS = "settings"
 STATE_RECORDS = "records"
 
@@ -283,11 +284,22 @@ def main():
                                 game.choose_upgrade(i)
                                 break
                 elif event.type == pygame.KEYDOWN:                # <-- ТВОЯ ПРЕЖНЯЯ обработка
-                    if event.key == pygame.K_ESCAPE:
-                        state = STATE_MENU
+                    if event.key == pygame.K_ESCAPE and not game.game_over:
+                        state = STATE_PAUSED
                     elif event.key == pygame.K_r and game.game_over:
                         game.reset()
                         _record_saved = False
+
+            elif state == STATE_PAUSED:
+                if event.type == pygame.KEYDOWN:
+                    if event.key in (pygame.K_ESCAPE, pygame.K_p):
+                        state = STATE_PLAYING
+                    elif event.key == pygame.K_r:
+                        game.reset()
+                        _record_saved = False
+                        state = STATE_PLAYING
+                    elif event.key == pygame.K_q:
+                        state = STATE_MENU
 
         # 2. Update + 3. Render
         if state == STATE_MENU:
@@ -299,6 +311,9 @@ def main():
         elif state == STATE_RECORDS:
             records_menu.update(dt)
             records_menu.render()
+        elif state == STATE_PAUSED:
+            game.render()
+            game.hud.render_pause(screen)
         else:
             game.update(dt)
             game.render()

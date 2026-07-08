@@ -57,8 +57,8 @@ class HUD:
         self.font = _make_font(settings.HUD_FONT_SIZE)
         self.hp_font = _make_font(settings.HUD_HP_FONT_SIZE)
         self.big_font = _make_font(settings.HUD_FONT_SIZE * 2, bold=True)
-        self.card_title_font = pygame.font.SysFont("consolas",int(settings.HUD_FONT_SIZE * 1.15), bold=True)
-        self.card_desc_font = pygame.font.SysFont("consolas", settings.HUD_FONT_SIZE)
+        self.card_title_font = _make_font(int(settings.HUD_FONT_SIZE * 1.15), bold=True)
+        self.card_desc_font = _make_font(settings.HUD_FONT_SIZE)
 
     def _text(self, surface, text, pos, color=None):
         color = color or settings.HUD_TEXT_COLOR
@@ -166,6 +166,38 @@ class HUD:
             self._blit_wrapped(surface, choice.get("desc", ""), self.card_desc_font,
                                (200, 205, 220), cardx + 14, ty, card_w - 28)
         return rects
+
+    def render_pause(self, surface):
+        """Экран паузы — полупрозрачный оверлей поверх замороженной игры."""
+        overlay = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 160))
+        surface.blit(overlay, (0, 0))
+
+        cx = surface.get_width() // 2
+        cy = surface.get_height() // 2
+
+        lines = [
+            ("ESC / P  —  продолжить", (210, 210, 220)),
+            ("R         —  заново",     (210, 210, 220)),
+            ("Q         —  в меню",     (210, 210, 220)),
+        ]
+
+        gap_title_buttons = 14   # отступ между заголовком и первой кнопкой
+        line_gap = 8             # отступ между кнопками
+
+        title = self.big_font.render("ПАУЗА", True, (255, 220, 120))
+        line_h = self.font.get_height()
+        total_h = (title.get_height() + gap_title_buttons
+                   + len(lines) * line_h + (len(lines) - 1) * line_gap)
+
+        title_y = cy - total_h // 2
+        surface.blit(title, (cx - title.get_width() // 2, title_y))
+
+        y = title_y + title.get_height() + gap_title_buttons
+        for text, color in lines:
+            img = self.font.render(text, True, color)
+            surface.blit(img, (cx - img.get_width() // 2, y))
+            y += line_h + line_gap
 
     def _blit_wrapped(self, surface, text, font, color, x, y, max_w):
         words = text.split(); line = ""; lh = font.get_height() + 2

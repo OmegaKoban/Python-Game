@@ -79,9 +79,35 @@ class WaveManager:
         elif self.state == "spawning":
             self.spawn_timer -= dt
             if self.spawn_timer <= 0 and self.to_spawn > 0:
-                pos = self._random_edge_position(player.pos)
+                # Пробуем найти валидную позицию спауна (не в коллизии)
+                max_attempts = 10
+                enemy = None
                 etype = self._pick_enemy_type()
-                enemies_group.add(Enemy(pos, enemy_type=etype, wave_number=self.wave_number))
+                
+                for attempt in range(max_attempts):
+                    pos = self._random_edge_position(player.pos)
+                    test_enemy = Enemy(pos, enemy_type=etype, wave_number=self.wave_number)
+                    
+                    # Проверяем, не в коллизии ли
+                    if not self.tilemap.check_collision(test_enemy.rect):
+                        enemy = test_enemy
+                        break
+                
+                # Если не нашли валидную позицию за 10 попыток, 
+                # просто спауним в центре карты (гарантированно не в коллизии)
+                if enemy is None:
+                    center_x = self.tilemap.pixel_width // 2
+                    center_y = self.tilemap.pixel_height // 2
+                    # Спауним рядом с центром в случайном направлении
+                    offset = 200
+                    angle = random.uniform(0, 6.28)  # 2*pi
+                    pos = (
+                        center_x + int(offset * pygame.math.Vector2(1, 0).rotate_rad(angle).x),
+                        center_y + int(offset * pygame.math.Vector2(1, 0).rotate_rad(angle).y)
+                    )
+                    enemy = Enemy(pos, enemy_type=etype, wave_number=self.wave_number)
+                
+                enemies_group.add(enemy)
                 self.to_spawn -= 1
                 self.spawn_timer = settings.WAVE_SPAWN_INTERVAL
 

@@ -18,6 +18,9 @@ class TileMap:
         self.pixel_height = self.height_tiles * self.tile_size
 
         self.tile_image = self._load_tile_image()
+        
+        # Зоны коллизий (домики и препятствия)
+        self.collision_zones = self._load_collision_zones()
 
     def _load_tile_image(self):
         """
@@ -72,3 +75,60 @@ class TileMap:
         rect.right = min(rect.right, self.pixel_width)
         rect.bottom = min(rect.bottom, self.pixel_height)
         return rect
+    
+    def _load_collision_zones(self):
+        """Загружает зоны коллизий из settings. Возвращает список pygame.Rect."""
+        zones = []
+        if hasattr(settings, 'COLLISION_ZONES'):
+            for x1, y1, x2, y2 in settings.COLLISION_ZONES:
+                width = x2 - x1
+                height = y2 - y1
+                zones.append(pygame.Rect(x1, y1, width, height))
+        return zones
+    
+    def check_collision(self, rect):
+        """
+        Проверяет столкновение rect с зонами коллизий.
+        Возвращает None если коллизии нет, иначе pygame.Rect зоны.
+        """
+        for zone in self.collision_zones:
+            if rect.colliderect(zone):
+                return zone
+        return None
+    
+    def resolve_collision(self, rect, prev_pos):
+        """
+        Разрешает коллизию с попыткой скольжения вдоль стены.
+        
+        Args:
+            rect: текущий прямоугольник сущности
+            prev_pos: предыдущая позиция (x, y) перед движением
+        
+        Returns:
+            bool: True если была коллизия, False иначе
+        """
+        collision = self.check_collision(rect)
+        if not collision:
+            return False
+        
+        # Есть коллизия - пробуем скольжение
+        # Сохраняем желаемую позицию
+        desired_x = rect.centerx
+        desired_y = rect.centery
+        
+        # Пробуем движение только по X
+        rect.centerx = desired_x
+        rect.centery = int(prev_pos[1])
+        if not self.check_collision(rect):
+            return True  # Движение по X успешно
+        
+        # Пробуем движение только по Y
+        rect.centerx = int(prev_pos[0])
+        rect.centery = desired_y
+        if not self.check_collision(rect):
+            return True  # Движение по Y успешно
+        
+        # Ни X, ни Y не работают - полный откат
+        rect.centerx = int(prev_pos[0])
+        rect.centery = int(prev_pos[1])
+        return True

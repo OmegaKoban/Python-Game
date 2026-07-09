@@ -5,7 +5,7 @@
 ![Status](https://img.shields.io/badge/status-prototype-green)
 ![Python](https://img.shields.io/badge/python-3.11+-blue)
 ![Pygame](https://img.shields.io/badge/pygame-2.5+-orange)
-![License](https://img.shields.io/badge/license-MIT-purple)
+
 
 **Roguelike-выживач с автоатакой против нарастающих волн врагов**
 

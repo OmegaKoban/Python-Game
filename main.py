@@ -40,7 +40,7 @@ class Game:
 
     def reset(self):
         """Полный сброс состояния — для старта и рестарта после поражения."""
-        center = (self.tilemap.pixel_width // 2, self.tilemap.pixel_height // 2)
+        center = (self.tilemap.pixel_width // 2, self.tilemap.pixel_height // 2 + 200)
         self.player = Player(start_pos=center)
         self.camera = Camera(self.tilemap)
         self.wave_manager = WaveManager(self.tilemap)
@@ -140,6 +140,12 @@ class Game:
         if settings.DEBUG_HITBOXES:
             pygame.draw.rect(self.view_surface, (255, 60, 60),
                              self.camera.apply(self.player.hitbox), width=2)
+        
+        # Отладка: зоны коллизий (синие рамки).
+        if settings.DEBUG_COLLISION_ZONES:
+            for zone in self.tilemap.collision_zones:
+                pygame.draw.rect(self.view_surface, (0, 100, 255),
+                                 self.camera.apply(zone), width=3)
 
         # 2. Растягиваем на весь экран (зум).
         scaled = pygame.transform.scale(

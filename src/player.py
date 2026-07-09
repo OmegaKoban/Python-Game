@@ -194,6 +194,10 @@ class Player(AnimatedEntity):
 
         # Движение (работает всегда, в т.ч. во время атаки).
         direction = self.handle_input()
+        
+        # Сохраняем текущую позицию для отката при коллизии
+        prev_pos = (self.pos.x, self.pos.y)
+        
         self.pos += direction * self.speed * dt
         moving = direction.length_squared() > 0
 
@@ -205,7 +209,13 @@ class Player(AnimatedEntity):
 
         self.rect.centerx = round(self.pos.x)
         self.rect.centery = round(self.pos.y)
+        
+        # Проверка коллизий с домиками
+        tilemap.resolve_collision(self.rect, prev_pos)
+        
+        # Ограничение границами карты
         tilemap.clamp_to_bounds(self.rect)
+        
         self.pos.update(self.rect.center)
         self.sync_hitbox()
 

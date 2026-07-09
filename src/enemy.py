@@ -127,6 +127,9 @@ class Enemy(AnimatedEntity):
         distance = to_player.length()
         moving = False
         if distance > 1:
+            # Сохраняем позицию для отката при коллизии
+            prev_pos = (self.pos.x, self.pos.y)
+            
             step = to_player.normalize() * self.speed * dt
             if step.length() > distance:
                 step = to_player
@@ -134,8 +137,16 @@ class Enemy(AnimatedEntity):
             moving = True
             self.facing_right = to_player.x >= 0
 
-        self.rect.centerx = round(self.pos.x)
-        self.rect.centery = round(self.pos.y)
+            self.rect.centerx = round(self.pos.x)
+            self.rect.centery = round(self.pos.y)
+            
+            # Проверка коллизий с домиками
+            if tilemap.resolve_collision(self.rect, prev_pos):
+                self.pos.update(self.rect.center)
+        else:
+            self.rect.centerx = round(self.pos.x)
+            self.rect.centery = round(self.pos.y)
+        
         tilemap.clamp_to_bounds(self.rect)
         self.pos.update(self.rect.center)
         self.sync_hitbox()

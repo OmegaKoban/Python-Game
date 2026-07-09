@@ -141,11 +141,24 @@ class Game:
             pygame.draw.rect(self.view_surface, (255, 60, 60),
                              self.camera.apply(self.player.hitbox), width=2)
         
-        # Отладка: зоны коллизий (синие рамки).
+        # Отладка: зоны коллизий (синие рамки с номерами).
         if settings.DEBUG_COLLISION_ZONES:
-            for zone in self.tilemap.collision_zones:
+            font = pygame.font.Font(None, 36)
+            for i, zone in enumerate(self.tilemap.collision_zones, 1):
+                # Рисуем рамку
                 pygame.draw.rect(self.view_surface, (0, 100, 255),
                                  self.camera.apply(zone), width=3)
+                # Добавляем номер дома в центре зоны
+                zone_screen = self.camera.apply(zone)
+                text = font.render(f"Дом {i}", True, (255, 255, 0))
+                text_rect = text.get_rect(center=(zone_screen.centerx, zone_screen.centery))
+                # Полупрозрачный фон для текста
+                bg_rect = text_rect.inflate(10, 10)
+                bg_surface = pygame.Surface((bg_rect.width, bg_rect.height), pygame.SRCALPHA)
+                pygame.draw.rect(bg_surface, (0, 0, 0, 180), bg_surface.get_rect(), border_radius=5)
+                self.view_surface.blit(bg_surface, bg_rect.topleft)
+                # Текст
+                self.view_surface.blit(text, text_rect)
 
         # 2. Растягиваем на весь экран (зум).
         scaled = pygame.transform.scale(

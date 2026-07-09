@@ -58,6 +58,12 @@ class Enemy(AnimatedEntity):
         self.should_remove = False  # main.py удалит врага, когда True
         self.attack_hit_done = False  # урон в текущей анимации атаки уже нанесён
 
+        # Для обхода препятствий
+        self.stuck_timer = 0.0      # сколько времени застрял
+        self.last_pos = pygame.Vector2(start_pos)
+        self.detour_direction = None  # направление обхода
+        self.detour_timer = 0.0
+
         # Хитбокс тела.
         self.init_hitbox(cfg.get("hitbox_scale", settings.ENEMY_HITBOX_SCALE))
 
@@ -122,17 +128,53 @@ class Enemy(AnimatedEntity):
         if self.attack_cooldown > 0:
             self.attack_cooldown = max(0.0, self.attack_cooldown - dt)
 
+        # Проверка застревания
+        distance_moved = (self.pos - self.last_pos).length()
+        if distance_moved < 1:  # почти не двигается
+            self.stuck_timer += dt
+        else:
+            self.stuck_timer = 0.0
+            self.detour_direction = None
+            self.detour_timer = 0.0
+        self.last_pos = pygame.Vector2(self.pos)
+
         # Движение к игроку.
         to_player = player.pos - self.pos
         distance = to_player.length()
         moving = False
+        
         if distance > 1:
-            # Сохраняем позицию для отката при коллизии
             prev_pos = (self.pos.x, self.pos.y)
             
-            step = to_player.normalize() * self.speed * dt
-            if step.length() > distance:
+            # Если застрял больше 0.3 секунд - активируем режим обхода
+            if self.stuck_timer > 0.3:
+                if self.detour_direction is None:
+                    # Выбираем направление обхода (перпендикулярно к игроку)
+                    perpendicular = pygame.Vector2(-to_player.y, to_player.x).normalize()
+                    # Случайно выбираем лево или право
+                    if random.random() < 0.5:
+                        perpendicular = -perpendicular
+                    self.detour_direction = perpendicular
+                    self.detour_timer = 1.5  # идём в обход 1.5 секунды
+                
+                # Движемся под углом: частично к игроку, частично в сторону
+                if self.detour_timer > 0:
+                    self.detour_timer -= dt
+                    # Смешиваем направления: 30% к игроку, 70% в обход
+                    direction = (to_player.normalize() * 0.3 + self.detour_direction * 0.7).normalize()
+                else:
+                    # Время обхода истекло, снова напрямую
+                    direction = to_player.normalize()
+                    self.detour_direction = None
+                    self.stuck_timer = 0.0
+            else:
+                # Обычное движение к игроку
+                direction = to_player.normalize()
+            
+            step = direction * self.speed * dt
+            if step.length() > distance and self.detour_direction is None:
                 step = to_player
+            
             self.pos += step
             moving = True
             self.facing_right = to_player.x >= 0

@@ -38,18 +38,20 @@ class Pickup(pygame.sprite.Sprite):
         # Попытка загрузить спрайт из settings (если задан путь и файл есть).
         path = (settings.XP_PICKUP_IMAGE_PATH if self.kind == "xp"
                 else settings.HEAL_PICKUP_IMAGE_PATH)
+        s = (settings.XP_PICKUP_SIZE if self.kind == "xp"
+             else settings.HEAL_PICKUP_SIZE)
         if path:
             try:
                 img = pygame.image.load(path).convert_alpha()
-                s = settings.PICKUP_SIZE
                 return pygame.transform.scale(img, (s, s))
             except (pygame.error, FileNotFoundError):
                 pass
-        return self._make_placeholder()
+        return self._make_placeholder(s)
 
-    def _make_placeholder(self):
+    def _make_placeholder(self, s=None):
         """Фигура-заглушка: опыт — ромб, хилка — крест."""
-        s = settings.PICKUP_SIZE
+        if s is None:
+            s = settings.XP_PICKUP_SIZE if self.kind == "xp" else settings.HEAL_PICKUP_SIZE
         surface = pygame.Surface((s, s), pygame.SRCALPHA)
         if self.kind == "xp":
             color = settings.XP_PICKUP_COLOR

@@ -45,30 +45,20 @@
 
 ## 🎬 Скриншоты
 
-<div align="center">
+### Главное меню
+*Анимированные облака и пергаментная панель*
 
-<table>
-  <tr>
-    <td align="center">
-      <img src="./docs/ui_main_menu.jpg" width="600" alt="Главное меню"><br>
-      <sub><b>Главное меню</b><br>Анимированные облака и пергаментная панель</sub>
-    </td>
-  </tr>
-  <tr>
-    <td align="center">
-      <img src="./docs/ui_gameplay.jpg" width="600" alt="Геймплей"><br>
-      <sub><b>Геймплей</b><br>Автоатака по врагам, дропы и полоски HP</sub>
-    </td>
-  </tr>
-  <tr>
-    <td align="center">
-      <img src="./docs/ui_levelup.jpg" width="600" alt="Выбор усиления"><br>
-      <sub><b>Выбор усиления</b><br>3 случайных улучшения при Level Up</sub>
-    </td>
-  </tr>
-</table>
+![Главное меню](./docs/ui_main_menu.jpg)
 
-</div>
+### Геймплей
+*Автоатака по врагам, дропы и полоски HP*
+
+![Геймплей](./docs/ui_gameplay.jpg)
+
+### Выбор усиления
+*3 случайных улучшения при Level Up*
+
+![Выбор усиления](./docs/ui_levelup.jpg)
 
 ---
 

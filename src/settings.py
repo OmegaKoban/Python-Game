@@ -389,7 +389,7 @@ ENEMY_TYPES = {
     # ---- ОРКИ ----
     "orc1": {
         "dir": "orc1",
-        "frames": {"run": 8, "attack": 8, "hurt": 6, "death": 8},
+        "frames": {"run": 8, "attack": 8, "hurt": 6, "death": 1118},
         "hp": 60,        # 2 удара
         "speed": 85,
         "damage": 14,

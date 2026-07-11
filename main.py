@@ -25,10 +25,14 @@ from src.player import Player
 from src.camera import Camera
 from src.wave_manager import WaveManager
 from src.hud import HUD
+from src.logger import get_logger
 
 from src.pickups import Pickup
 from src.menu import Menu, SettingsMenu, RecordsMenu
 from src.records import add_record
+
+# Инициализация логгера
+logger = get_logger()
 
 
 
@@ -40,6 +44,7 @@ class Game:
 
     def reset(self):
         """Полный сброс состояния — для старта и рестарта после поражения."""
+        logger.info("Начало новой игры - сброс состояния")
         center = (self.tilemap.pixel_width // 2, self.tilemap.pixel_height // 2 + 200)
         self.player = Player(start_pos=center)
         self.camera = Camera(self.tilemap)
@@ -53,6 +58,7 @@ class Game:
 
         # Промежуточный surface в размер видимой области мира (до зума).
         self.view_surface = pygame.Surface(self.camera.get_view_surface_size())
+        logger.debug(f"Игрок создан на позиции {center}")
 
         self.pickups = []
         self.level_up_active = False

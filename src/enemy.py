@@ -63,6 +63,7 @@ class Enemy(AnimatedEntity):
         self.last_pos = pygame.Vector2(start_pos)
         self.detour_direction = None  # направление обхода
         self.detour_timer = 0.0
+        self.wall_side = None  # с какой стороны стена (для скольжения)
 
         # Хитбокс тела.
         self.init_hitbox(cfg.get("hitbox_scale", settings.ENEMY_HITBOX_SCALE))
@@ -128,14 +129,17 @@ class Enemy(AnimatedEntity):
         if self.attack_cooldown > 0:
             self.attack_cooldown = max(0.0, self.attack_cooldown - dt)
 
-        # Проверка застревания
+                # Проверка застревания
+                # Проверка застревания
         distance_moved = (self.pos - self.last_pos).length()
-        if distance_moved < 1:  # почти не двигается
+        if distance_moved < 2:  # почти не двигается
             self.stuck_timer += dt
         else:
             self.stuck_timer = 0.0
-            self.detour_direction = None
-            self.detour_timer = 0.0
+            if distance_moved > 5:  # двигается нормально
+                self.detour_direction = None
+                self.detour_timer = 0.0
+                self.wall_side = None
         self.last_pos = pygame.Vector2(self.pos)
 
         # Движение к игроку.
@@ -146,27 +150,93 @@ class Enemy(AnimatedEntity):
         if distance > 1:
             prev_pos = (self.pos.x, self.pos.y)
             
-            # Если застрял больше 0.3 секунд - активируем режим обхода
-            if self.stuck_timer > 0.3:
-                if self.detour_direction is None:
-                    # Выбираем направление обхода (перпендикулярно к игроку)
-                    perpendicular = pygame.Vector2(-to_player.y, to_player.x).normalize()
-                    # Случайно выбираем лево или право
-                    if random.random() < 0.5:
-                        perpendicular = -perpendicular
-                    self.detour_direction = perpendicular
-                    self.detour_timer = 1.5  # идём в обход 1.5 секунды
+            # Если застрял больше 0.2 секунд - активируем умный обход
+            if self.stuck_timer > 0.2:
+                if self.detour_direction is None or self.stuck_timer > 1.0:
+                    # Если застрял очень долго (>1 сек) - пересчитываем направление
+                    to_player_norm = to_player.normalize()
+                    
+                    # Перпендикулярные направления
+                    perpendicular = pygame.Vector2(-to_player_norm.y, to_player_norm.x)
+                    
+                    # Пробуем 8 направлений: включая назад и диагонали
+                    test_directions = [
+                        perpendicular,  # влево 90°
+                        -perpendicular,  # вправо 90°
+                        (to_player_norm * 0.7 + perpendicular * 0.7).normalize(),  # лево-вперёд 45°
+                        (to_player_norm * 0.7 - perpendicular * 0.7).normalize(),  # право-вперёд 45°
+                        (perpendicular * 0.7 - to_player_norm * 0.3).normalize(),  # лево-назад
+                        (-perpendicular * 0.7 - to_player_norm * 0.3).normalize(),  # право-назад
+                        -to_player_norm,  # назад
+                        (to_player_norm * 0.3 + perpendicular * 0.7).normalize(),  # больше влево
+                    ]
+                    
+                    # Если застрял очень долго (>1.5 сек) - добавляем случайность
+                    if self.stuck_timer > 1.5:
+                        random_angle = random.uniform(0, 6.28)
+                        random_dir = pygame.Vector2(
+                            pygame.math.Vector2(1, 0).rotate_rad(random_angle)
+                        )
+                        test_directions.insert(0, random_dir)
+                    
+                    # Выбираем лучшее направление
+                    best_dir = None
+                    best_score = -999
+                    min_collision_distance = 50  # минимальное расстояние для проверки
+                    
+                    for test_dir in test_directions:
+                        # Тестовое движение на несколько шагов вперёд
+                        test_distance = min_collision_distance
+                        test_pos = self.pos + test_dir * test_distance
+                        test_rect = self.rect.copy()
+                        test_rect.center = (round(test_pos.x), round(test_pos.y))
+                        
+                        # Проверяем коллизию
+                        collision = tilemap.check_collision(test_rect)
+                        
+                        if not collision:
+                            # Считаем насколько это направление хорошее
+                            # Приоритет: приближение к игроку > любое свободное направление
+                            score = test_dir.dot(to_player_norm) * 100
+                            
+                            # Бонус за перпендикулярные направления (обход сбоку)
+                            perp_score = abs(test_dir.dot(perpendicular))
+                            score += perp_score * 50
+                            
+                            if score > best_score:
+                                best_score = score
+                                best_dir = test_dir
+                    
+                    if best_dir is not None:
+                        self.detour_direction = best_dir
+                        # Время обхода зависит от того, насколько застряли
+                        if self.stuck_timer > 1.0:
+                            self.detour_timer = 1.5  # дольше идём в обход если сильно застряли
+                        else:
+                            self.detour_timer = 0.8
+                        self.stuck_timer = 0.0  # сбрасываем таймер застревания
+                    else:
+                        # Крайний случай: все направления заблокированы
+                        # Резкий рывок назад
+                        self.detour_direction = -to_player_norm
+                        self.detour_timer = 0.5
+                        self.stuck_timer = 0.0
                 
-                # Движемся под углом: частично к игроку, частично в сторону
+                # Движемся в выбранном направлении обхода
                 if self.detour_timer > 0:
                     self.detour_timer -= dt
-                    # Смешиваем направления: 30% к игроку, 70% в обход
-                    direction = (to_player.normalize() * 0.3 + self.detour_direction * 0.7).normalize()
+                    
+                    # Постепенно увеличиваем влияние направления к игроку
+                    progress = 1.0 - (self.detour_timer / 0.8) if self.detour_timer < 0.8 else 0.0
+                    player_weight = 0.2 + progress * 0.3  # от 20% до 50%
+                    detour_weight = 1.0 - player_weight
+                    
+                    direction = (to_player.normalize() * player_weight + 
+                               self.detour_direction * detour_weight).normalize()
                 else:
-                    # Время обхода истекло, снова напрямую
+                    # Время обхода истекло, пробуем снова напрямую
                     direction = to_player.normalize()
                     self.detour_direction = None
-                    self.stuck_timer = 0.0
             else:
                 # Обычное движение к игроку
                 direction = to_player.normalize()
@@ -183,11 +253,17 @@ class Enemy(AnimatedEntity):
             self.rect.centery = round(self.pos.y)
             
             # Проверка коллизий с домиками
-            if tilemap.resolve_collision(self.rect, prev_pos):
+            collision_happened = tilemap.resolve_collision(self.rect, prev_pos)
+            if collision_happened:
                 self.pos.update(self.rect.center)
+                # Если столкнулись - немного увеличиваем таймер застревания
+                if self.detour_direction is not None:
+                    self.stuck_timer += dt * 2  # быстрее перерасчёт при коллизии
         else:
             self.rect.centerx = round(self.pos.x)
             self.rect.centery = round(self.pos.y)
+
+
         
         tilemap.clamp_to_bounds(self.rect)
         self.pos.update(self.rect.center)

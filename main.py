@@ -90,17 +90,22 @@ class Game:
         for enemy in list(self.enemies):
             if not enemy.is_alive:
                 self.kills += 1
-                for kind, value, pos in enemy.roll_drops():       # <-- ДОБАВИТЬ
-                    self.pickups.append(Pickup(pos, kind, value))  # <-- ДОБАВИТЬ
+                logger.combat(
+                    f"Враг {enemy.enemy_type} убит "
+                    f"(всего убийств: {self.kills})"
+                )
+                for kind, value, pos in enemy.roll_drops():
+                    self.pickups.append(Pickup(pos, kind, value))
                 self.enemies.remove(enemy)
 
-        # Дропы: магнитятся к игроку, при подборе дают опыт / здоровье.  # <-- ДОБАВИТЬ весь блок
+        # Дропы: магнитятся к игроку, при подборе дают опыт / здоровье.
         for pickup in list(self.pickups):
             if pickup.update(dt, self.player):
                 if pickup.kind == "xp":
                     self.player.add_xp(pickup.value)
                 elif pickup.kind == "heal":
                     self.player.heal(pickup.value)
+                logger.pickup(pickup.kind, pickup.value)
         self.pickups = [p for p in self.pickups if p.alive]
 
         # Убираем отработавшие снаряды.
@@ -112,9 +117,10 @@ class Game:
         # Проверка поражения.
         if not self.player.is_alive:
             self.game_over = True
-            return                              # <-- ДОБАВИТЬ
+            logger.game_over(self.kills, self.wave_manager.wave_number)
+            return
 
-        # Повышение уровня: есть очередь выборов — встаём на паузу.  # <-- ДОБАВИТЬ весь блок
+        # Повышение уровня: есть очередь выборов — встаём на паузу.
         if self.player.pending_levelups > 0:
             self._open_level_up()
 
@@ -184,6 +190,10 @@ class Game:
         self.level_up_active = True
         self.levelup_choices = self.player.roll_upgrade_choices()
         self.levelup_selected = 0
+        logger.info(
+            f"[LEVELUP] Открыт экран выбора улучшения "
+            f"(уровень игрока: {self.player.level})"
+        )
 
     def choose_upgrade(self, index):
         if not (0 <= index < len(self.levelup_choices)):
@@ -266,13 +276,17 @@ def main():
                     game = Game(screen)
                     _record_saved = False
                     state = STATE_PLAYING
+                    logger.info("[GAME] Начата новая игра")
                 elif choice == "settings":
                     settings_menu = SettingsMenu(screen)
                     state = STATE_SETTINGS
+                    logger.debug("[GAME] Переход: меню → настройки")
                 elif choice == "records":
                     records_menu = RecordsMenu(screen)
                     state = STATE_RECORDS
+                    logger.debug("[GAME] Переход: меню → рекорды")
                 elif choice == "quit":
+                    logger.info("[GAME] Выход из игры")
                     running = False
                 elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
                     running = False
@@ -281,14 +295,16 @@ def main():
                 result = settings_menu.handle_event(event)
                 if result == "back":
                     state = STATE_MENU
+                    logger.debug("[GAME] Переход: настройки → меню")
 
             elif state == STATE_RECORDS:
                 result = records_menu.handle_event(event)
                 if result == "back":
                     state = STATE_MENU
+                    logger.debug("[GAME] Переход: рекорды → меню")
 
             elif state == STATE_PLAYING:
-                if game.level_up_active:                          # <-- НОВАЯ ветка (меню уровня)
+                if game.level_up_active:                          # меню выбора улучшения
                     if event.type == pygame.KEYDOWN:
                         n = len(game.levelup_choices)
                         if event.key in (pygame.K_1, pygame.K_KP1) and n >= 1:
@@ -308,23 +324,28 @@ def main():
                             if rect.collidepoint(event.pos):
                                 game.choose_upgrade(i)
                                 break
-                elif event.type == pygame.KEYDOWN:                # <-- ТВОЯ ПРЕЖНЯЯ обработка
+                elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE and not game.game_over:
                         state = STATE_PAUSED
+                        logger.debug("[GAME] Игра поставлена на паузу")
                     elif event.key == pygame.K_r and game.game_over:
                         game.reset()
                         _record_saved = False
+                        logger.info("[GAME] Рестарт игры")
 
             elif state == STATE_PAUSED:
                 if event.type == pygame.KEYDOWN:
                     if event.key in (pygame.K_ESCAPE, pygame.K_p):
                         state = STATE_PLAYING
+                        logger.debug("[GAME] Пауза снята")
                     elif event.key == pygame.K_r:
                         game.reset()
                         _record_saved = False
                         state = STATE_PLAYING
+                        logger.info("[GAME] Рестарт игры с паузы")
                     elif event.key == pygame.K_q:
                         state = STATE_MENU
+                        logger.info("[GAME] Переход: пауза → главное меню")
 
         # 2. Update + 3. Render
         if state == STATE_MENU:
@@ -347,6 +368,12 @@ def main():
                 add_record(settings.SETTINGS_PLAYER_NAME,
                            game.kills, game.wave_manager.wave_number)
                 _record_saved = True
+                logger.info(
+                    f"[GAME] Рекорд записан — "
+                    f"игрок: {settings.SETTINGS_PLAYER_NAME}, "
+                    f"убито: {game.kills}, "
+                    f"волн: {game.wave_manager.wave_number}"
+                )
 
         # Яркость — применяется поверх любого экрана.
         # brightness=1.0 -> alpha=0 (не влияет), brightness=0.2 -> alpha=178.

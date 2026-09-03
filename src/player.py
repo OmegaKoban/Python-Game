@@ -10,6 +10,9 @@ from src import settings
 from src.entity import AnimatedEntity
 from src.projectile import Projectile
 from src.abilities import AbilityManager
+from src.logger import get_logger
+
+_logger = get_logger()
 
 
 class Player(AnimatedEntity):
@@ -185,7 +188,12 @@ class Player(AnimatedEntity):
         if self.invuln_timer > 0:
             return False
         self.invuln_timer = settings.PLAYER_INVULN_TIME
-        return super().take_damage(amount)
+        died = super().take_damage(amount)
+        if died:
+            _logger.combat(f"Игрок погиб")
+        else:
+            _logger.combat(f"Игрок получил {amount} урона, HP: {self.hp}/{self.max_hp}")
+        return died
 
     # ---------- Основной апдейт ----------
     def update(self, dt, tilemap, enemies):
@@ -254,9 +262,13 @@ class Player(AnimatedEntity):
             self.level += 1
             self.pending_levelups += 1
             self.xp_to_next = self._xp_threshold(self.level)
+            _logger.levelup(self.level)
 
     def heal(self, amount):
+        before = self.hp
         self.hp = min(self.max_hp, self.hp + amount)
+        healed = self.hp - before
+        _logger.combat(f"Игрок восстановил {healed} HP, HP: {self.hp}/{self.max_hp}")
 
     def roll_upgrade_choices(self):
         import random
@@ -277,15 +289,20 @@ class Player(AnimatedEntity):
         if ctype == "passive":
             if cid == "dmg":
                 self.damage_mult += settings.UPGRADE_ATTACK_DAMAGE_MULT
+                _logger.info(f"[LEVELUP] Улучшение: урон +{int(settings.UPGRADE_ATTACK_DAMAGE_MULT * 100)}%, множитель={self.damage_mult:.2f}")
             elif cid == "aspd":
                 self.attack_interval = max(
                     settings.PLAYER_ATTACK_INTERVAL_MIN,
                     self.attack_interval * (1.0 - settings.UPGRADE_ATTACK_SPEED_MULT),
                 )
+                _logger.info(f"[LEVELUP] Улучшение: скорость атаки, интервал={self.attack_interval:.3f}с")
             elif cid == "hp":
                 self.max_hp += settings.UPGRADE_MAX_HP_ADD
                 self.hp += settings.UPGRADE_MAX_HP_ADD
+                _logger.info(f"[LEVELUP] Улучшение: HP +{settings.UPGRADE_MAX_HP_ADD}, HP={self.hp}/{self.max_hp}")
         elif ctype == "ability":
             self.abilities.add_or_upgrade(cid)
+            lvl = self.abilities.level_of(cid)
+            _logger.info(f"[LEVELUP] Улучшение способности: {cid} → уровень {lvl}")
         if self.pending_levelups > 0:
             self.pending_levelups -= 1

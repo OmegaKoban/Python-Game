@@ -10,6 +10,9 @@ import pygame
 
 from src import settings
 from src.enemy import Enemy
+from src.logger import get_logger
+
+_logger = get_logger()
 
 
 class WaveManager:
@@ -75,6 +78,7 @@ class WaveManager:
                 self.to_spawn = self._enemies_in_wave()
                 self.spawn_timer = 0.0
                 self.state = "spawning"
+                _logger.wave_start(self.wave_number, self.to_spawn)
 
         elif self.state == "spawning":
             self.spawn_timer -= dt
@@ -96,6 +100,7 @@ class WaveManager:
                 # Если не нашли валидную позицию за 10 попыток, 
                 # просто спауним в центре карты (гарантированно не в коллизии)
                 if enemy is None:
+                    _logger.wave_fallback_spawn(etype)
                     center_x = self.tilemap.pixel_width // 2
                     center_y = self.tilemap.pixel_height // 2
                     # Спауним рядом с центром в случайном направлении
@@ -114,6 +119,7 @@ class WaveManager:
             # Все враги волны заспавнены — ждём, пока их всех перебьют,
             # затем уходим в паузу перед следующей волной.
             if self.to_spawn <= 0 and len(enemies_group) == 0:
+                _logger.wave_end(self.wave_number)
                 self.state = "waiting"
                 self.timer = settings.WAVE_INTERVAL
 

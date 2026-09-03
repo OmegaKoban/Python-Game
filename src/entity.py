@@ -6,6 +6,10 @@
 
 import pygame
 
+from src.logger import get_logger
+
+_logger = get_logger()
+
 
 class AnimatedEntity(pygame.sprite.Sprite):
     def __init__(self, size, start_pos, max_hp):
@@ -42,7 +46,10 @@ class AnimatedEntity(pygame.sprite.Sprite):
         try:
             sheet = pygame.image.load(image_path).convert_alpha()
         except (pygame.error, FileNotFoundError):
+            _logger.asset(image_path, loaded=False)
             return None
+
+        _logger.asset(image_path, loaded=True)
 
         frame_count = max(1, frame_count)
         sheet_width, sheet_height = sheet.get_size()
